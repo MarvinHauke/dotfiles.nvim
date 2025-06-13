@@ -61,28 +61,33 @@ local function notify(msg, level)
 end
 
 local function load_tracked_files()
-	local stat = vim.loop.fs_stat(config.git_dir)
+	local home = vim.fn.expand("~")
+	local git_dir = home .. "/.cfg"
+
+	local stat = vim.loop.fs_stat(git_dir)
 	if not stat or stat.type ~= "directory" then
 		return {}
 	end
 
-	local handle = io.popen(string.format("git --git-dir=%s --work-tree=%s ls-files", config.git_dir, config.work_tree))
+	-- Run the command from home directory using shell
+	local cmd = string.format(
+		"cd %s && git --git-dir=%s --work-tree=%s ls-files",
+		vim.fn.shellescape(home),
+		vim.fn.shellescape(git_dir),
+		vim.fn.shellescape(home)
+	)
 
-	if not handle then
-		return {}
-	end
+	local output = vim.fn.system(cmd)
+	local exit_code = vim.v.shell_error
 
-	local output = handle:read("*a")
-	local success, _, exit_code = handle:close()
-
-	if not success or exit_code ~= 0 then
+	if exit_code ~= 0 then
 		return {}
 	end
 
 	local files = {}
 	for line in output:gmatch("[^\r\n]+") do
 		if line and line ~= "" then
-			files[config.work_tree .. "/" .. line] = true
+			files[home .. "/" .. line] = true
 		end
 	end
 
